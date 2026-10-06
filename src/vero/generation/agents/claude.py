@@ -92,6 +92,15 @@ class ClaudeAgent(BaseAgent):
     strict_budget_usd: float | None = None
     # Optional AgentEnvShim from the Hydra config. Populated by create_agent.
     env_shim: Any = None
+    # Optional path to extra system-prompt text (e.g. a strategy prompt).
+    # Appended after the built-in hard rules, so harness rules still apply.
+    system_prompt_file: str | None = None
+
+    def _system_prompt(self) -> str:
+        if not self.system_prompt_file:
+            return _SYSTEM_PROMPT
+        extra = Path(self.system_prompt_file).expanduser().read_text()
+        return f"{_SYSTEM_PROMPT}\n\n{extra}"
 
     def _run_start_payload(self) -> dict[str, Any]:
         return {
@@ -101,6 +110,7 @@ class ClaudeAgent(BaseAgent):
             "effort": self.effort,
             "timeout_seconds": self.timeout_seconds,
             "strict_budget_usd": self.strict_budget_usd,
+            "system_prompt_file": self.system_prompt_file,
         }
 
     def _run_inner(
@@ -184,7 +194,7 @@ class ClaudeAgent(BaseAgent):
         setting_sources = ["user"] if scoped_config else None
 
         options = ClaudeAgentOptions(
-            system_prompt=_SYSTEM_PROMPT,
+            system_prompt=self._system_prompt(),
             max_turns=self.max_turns,
             allowed_tools=[
                 "Read",
